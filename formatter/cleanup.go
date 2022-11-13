@@ -20,9 +20,15 @@ type HeaderCleaner struct {
 	line []byte
 }
 
+var (
+	capath  = []byte("  CApath:")
+	ccapath = []byte("*   CApath:")
+)
+
 func (c *HeaderCleaner) Write(p []byte) (n int, err error) {
 	n = len(p)
 	cp := c.buf
+	p = bytes.Replace(p, capath, ccapath, 1) // Fix curl misformatted line
 	for len(p) > 0 {
 		idx := bytes.IndexByte(p, '\n')
 		if idx == -1 {
@@ -34,11 +40,17 @@ func (c *HeaderCleaner) Write(p []byte) (n int, err error) {
 		ignore := false
 		b, i := firstVisibleChar(c.line)
 		switch b {
-		case '>', '<':
+		case '>':
+			if c.Verbose {
+				c.line = c.line[i+2:]
+			} else {
+				ignore = true
+			}
+		case '<':
 			c.line = c.line[i+2:]
 		case '}', '{':
 			ignore = true
-			if c.Post != nil {
+			if c.Verbose && c.Post != nil {
 				cp = append(append(cp, bytes.TrimSpace(c.Post.Bytes())...), '\n', '\n')
 				c.Post = nil
 			}

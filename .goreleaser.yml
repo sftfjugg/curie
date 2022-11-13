@@ -1,7 +1,7 @@
-project_name: curl-httpie
+project_name: curlie
 builds:
   -
-    binary: http
+    binary: curlie
     env:
       - CGO_ENABLED=0
     goos:
@@ -9,30 +9,34 @@ builds:
       - linux
       - freebsd
       - windows
+    goarch:
+      - amd64
+      - arm
+      - arm64
+    ignore:
+      -
+        goos: windows
+        goarch: arm64
 release:
   name_template: "{{.ProjectName}}-v{{.Version}}"
-git:
-  short_hash: true
-brew:
-  github:
-    owner: rs
-    name: homebrew-tap
-  commit_author:
-    name: Olivier Poitrey
-    email: rs@rhapsodyk.net
-  homepage: https://github.com/rs/curl-httpie
-  description: HTTPie for curl — The power of curl, the ease of use of httpie.
-  conflicts:
-    - httpie
-nfpm:
-  maintainer: Olivier Poitrey <rs@rhapsodyk.net>
-  description: curl-httpie is a wrapper on top of curl that offers the ease of use of httpie without having to compromise curl features and performance.
-  license: MIT
-  formats:
-    - deb
-    - rpm
-  dependencies:
-    - curl
-  conflicts:
-    - httpie
-  bindir: /usr/bin
+brews:
+  -
+    tap:
+      owner: rs
+      name: homebrew-tap
+    commit_author:
+      name: Olivier Poitrey
+      email: rs@rhapsodyk.net
+    homepage: https://curlie.io
+    description: The power of curl, the ease of use of httpie.
+nfpms:
+  -
+    maintainer: Olivier Poitrey <rs@rhapsodyk.net>
+    description: curle is a frontend to curl that offers the ease of use of httpie without having to compromise curl features and performance.
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    dependencies:
+      - curl
+    bindir: /usr/bin

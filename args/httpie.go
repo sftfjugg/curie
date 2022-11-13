@@ -2,6 +2,7 @@ package args
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strings"
 )
@@ -16,32 +17,44 @@ const (
 	jsonArg
 )
 
-func parseFancyArgs(args []string) (opts []string) {
+type PostMode int
+
+const (
+	PostModeJSON PostMode = iota + 1
+	PostModeFORM
+)
+
+func parseFancyArgs(args []string, postMode PostMode) (opts Opts) {
 	if len(args) == 0 {
 		return
 	}
 	method := strings.ToUpper(args[0])
 	switch method {
-	case "HEAD", "GET", "POST", "PUT", "DELETE":
+	case "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE":
 		opts = append(opts, "-X", method)
+		args = args[1:]
+	case "HEAD":
+		opts = append(opts, "-I")
 		args = args[1:]
 	}
 	if len(args) == 0 {
 		return
 	}
-	hostIdx := len(opts)
-	opts = append(opts, args[0]) // host
-	args = args[1:]
+	url := args[0]
 	data := map[string]interface{}{}
-	for _, arg := range args {
+	for _, arg := range args[1:] {
 		typ, name, value := parseArg(arg)
 		switch typ {
 		case headerArg:
 			opts = append(opts, "-H", name+":"+value)
 		case paramArg:
-			opts[hostIdx] = appendURLParam(opts[hostIdx], name, value)
+			url = appendURLParam(url, name, value)
 		case fieldArg:
-			data[name] = value
+			if postMode == PostModeFORM {
+				opts = append(opts, "-F", name+"="+value)
+			} else {
+				data[name] = value
+			}
 		case jsonArg:
 			var v interface{}
 			json.Unmarshal([]byte(value), &v)
@@ -54,7 +67,31 @@ func parseFancyArgs(args []string) (opts []string) {
 		j, _ := json.Marshal(data)
 		opts = append(opts, "-d", string(j))
 	}
+	opts = append(opts, normalizeURL(url))
 	return
+}
+
+func normalizeURL(u string) string {
+	// If scheme is omitted, use http:
+	if !strings.HasPrefix(u, "http") {
+		if strings.HasPrefix(u, "//") {
+			u = "http:" + u
+		} else {
+			u = "http://" + u
+		}
+	}
+	pu, err := url.Parse(u)
+	if err != nil {
+		fmt.Print(err)
+		return u
+	}
+	if pu.Host == ":" {
+		pu.Host = "localhost"
+	} else if pu.Host != "" && pu.Host[0] == ':' {
+		// If :port is given with no hostname, add localhost
+		pu.Host = "localhost" + pu.Host
+	}
+	return pu.String()
 }
 
 func parseArg(arg string) (typ argType, name, value string) {

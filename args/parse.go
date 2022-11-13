@@ -27,11 +27,32 @@ func (opts Opts) Has(opt string) bool {
 	return opts.index(opt) != -1
 }
 
+// Val return the value of the first occurrence of opt.
 func (opts Opts) Val(opt string) string {
 	if idx := opts.index(opt); idx != -1 && idx+1 < len(opts) {
 		return opts[idx+1]
 	}
 	return ""
+}
+
+// Vals return the values of all occurrences of opt.
+func (opts Opts) Vals(opt string) []string {
+	var vals []string
+	off := 1
+	if len(opt) > 1 {
+		off = 2
+	}
+	for i, o := range opts {
+		if len(o) >= 2 && o[0] == '-' {
+			if o[off:] == opt {
+				if i+1 < len(opts) {
+					i++
+					vals = append(vals, opts[i])
+				}
+			}
+		}
+	}
+	return vals
 }
 
 // Remove removes all occurrences of opt and return true if found.
@@ -45,7 +66,12 @@ func (opts *Opts) Remove(opt string) bool {
 }
 
 // Parse converts an HTTPie like argv into a list of curl options.
-func Parse(argv []string) (opts Opts) {
+func Parse(argv Opts) (opts Opts) {
+	isForm := argv.Has("F") || argv.Has("form")
+	if isForm {
+		argv.Remove("F")
+		argv.Remove("form")
+	}
 	args := []string{}
 	sort.Strings(curlLongValues)
 	more := true
@@ -77,6 +103,7 @@ func Parse(argv []string) (opts Opts) {
 				if j == len(arg)-1 {
 					if i+1 < len(argv) {
 						opts = append(opts, argv[i+1])
+						i++
 					}
 				} else {
 					opts = append(opts, arg[j+1:])
@@ -86,7 +113,11 @@ func Parse(argv []string) (opts Opts) {
 		}
 	}
 	if len(args) > 0 {
-		opts = append(opts, parseFancyArgs(args)...)
+		postMode := PostModeJSON
+		if isForm {
+			postMode = PostModeFORM
+		}
+		opts = append(opts, parseFancyArgs(args, postMode)...)
 	}
 	return
 }
